@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>LIFX Control</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f4f5f7;
+      --bg-elevated: #ffffff;
+      --bg-card: #ffffff;
+      --bg-hover: #f0f1f4;
+      --border: #e2e5eb;
+      --border-light: #d0d4dc;
+      --text: #1a1d24;
+      --text-secondary: #5c6575;
+      --text-muted: #8b93a1;
+      --accent: #e89b2e;
+      --accent-soft: rgba(232, 155, 46, 0.12);
+      --success: #16a34a;
+      --success-soft: rgba(22, 163, 74, 0.1);
+      --error: #dc2626;
+      --error-soft: rgba(220, 38, 38, 0.1);
+      --glow: #e89b2e;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+      --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      min-height: 100dvh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Inter", system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Header ── */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent), #f0a84a);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 2px 10px rgba(232, 155, 46, 0.35);
+    }
+
+    .logo-icon svg {
+      width: 16px;
+      height: 16px;
+      fill: #fff;
+    }
+
+    .connection {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      transition: var(--transition);
+    }
+
+    .connection.connected {
+      color: var(--success);
+      border-color: rgba(22, 163, 74, 0.3);
+      background: var(--success-soft);
+    }
+
+    .connection.disconnected {
+      color: var(--error);
+      border-color: rgba(220, 38, 38, 0.3);
+      background: var(--error-soft);
+    }
+
+    .connection-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .connection.disconnected .connection-dot {
+      animation: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ── Main layout ── */
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+      transition: var(--transition);
+    }
+
+    .card-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    /* ── Main lamp card ── */
+    .lamp-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 20px;
+      padding: 32px 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .lamp-card::before {
+      content: "";
+      position: absolute;
+      top: -40%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      background: radial-gradient(circle, color-mix(in srgb, var(--glow) 18%, transparent) 0%, transparent 70%);
+      pointer-events: none;
+      transition: opacity 0.5s ease, background 0.4s ease;
+      opacity: 0;
+    }
+
+    .lamp-card.on::before {
+      opacity: 1;
+    }
+
+    .bulb-visual {
+      width: 140px;
+      height: 140px;
+      position: relative;
+      z-index: 1;
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .lamp-card.on .bulb-visual {
+      transform: scale(1.05);
+    }
+
+    .bulb-svg {
+      width: 100%;
+      height: 100%;
+      filter: drop-shadow(0 0 0 transparent);
+      transition: filter 0.5s ease;
+    }
+
+    .lamp-card.on .bulb-svg {
+      filter: drop-shadow(0 0 20px color-mix(in srgb, var(--glow) 50%, transparent));
+    }
+
+    .bulb-glass {
+      fill: #d8dce4;
+      transition: fill 0.4s ease;
+    }
+
+    .lamp-card.on .bulb-glass {
+      fill: var(--glow);
+    }
+
+    .bulb-base {
+      fill: #a8b0bc;
+    }
+
+    .bulb-filament {
+      stroke: #9aa3b0;
+      stroke-width: 2;
+      fill: none;
+      transition: stroke 0.4s ease;
+    }
+
+    .lamp-card.on .bulb-filament {
+      stroke: color-mix(in srgb, var(--glow) 35%, #5a4010);
+    }
+
+    .lamp-info {
+      z-index: 1;
+    }
+
+    .lamp-name {
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+
+    .lamp-state {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .lamp-state-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      transition: var(--transition);
+    }
+
+    .lamp-card.on .lamp-state-badge {
+      background: var(--success-soft);
+      border-color: rgba(22, 163, 74, 0.3);
+      color: var(--success);
+    }
+
+    /* ── Power button ── */
+    .power-btn {
+      z-index: 1;
+      width: 100%;
+      max-width: 280px;
+      height: 52px;
+      border: none;
+      border-radius: 14px;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .power-btn.off {
+      background: linear-gradient(135deg, var(--accent), #f0a84a);
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(232, 155, 46, 0.35);
+    }
+
+    .power-btn.off:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(232, 155, 46, 0.45);
+    }
+
+    .power-btn.on {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border-light);
+    }
+
+    .power-btn.on:hover {
+      background: var(--bg-hover);
+      border-color: var(--text-muted);
+    }
+
+    .power-btn:active {
+      transform: scale(0.98);
+    }
+
+    .power-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .power-btn svg {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    /* ── Brightness ── */
+    .brightness-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .brightness-value {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+      min-width: 48px;
+      text-align: right;
+    }
+
+    .slider-wrap {
+      position: relative;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--bg);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 3px solid var(--bg-card);
+      box-shadow: 0 0 0 1px var(--accent), 0 2px 6px rgba(0, 0, 0, 0.15);
+      cursor: grab;
+      transition: transform 0.15s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+
+    input[type="range"]::-webkit-slider-thumb:active {
+      cursor: grabbing;
+      transform: scale(1.1);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 3px solid var(--bg-card);
+      box-shadow: 0 0 0 1px var(--accent), 0 2px 6px rgba(0, 0, 0, 0.15);
+      cursor: grab;
+    }
+
+    input[type="range"]::-moz-range-track {
+      height: 8px;
+      border-radius: 999px;
+      background: var(--bg);
+    }
+
+    input[type="range"] {
+      background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--fill, 100%), var(--bg) var(--fill, 100%), var(--bg) 100%);
+    }
+
+    /* ── Color section ── */
+    .color-picker-wrap {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    input[type="color"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 52px;
+      height: 52px;
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      background: transparent;
+      cursor: pointer;
+      padding: 3px;
+      transition: var(--transition);
+    }
+
+    input[type="color"]:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+
+    input[type="color"]::-webkit-color-swatch {
+      border: none;
+      border-radius: 10px;
+    }
+
+    input[type="color"]::-moz-color-swatch {
+      border: none;
+      border-radius: 10px;
+    }
+
+    .color-hex {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em;
+    }
+
+    .presets {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .preset-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .preset-btn:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-light);
+      color: var(--text);
+      transform: translateY(-1px);
+    }
+
+    .preset-btn:active {
+      transform: scale(0.97);
+    }
+
+    .preset-btn.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .preset-swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid rgba(0, 0, 0, 0.06);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* ── Prompt section ── */
+    .prompt-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .prompt-input {
+      width: 100%;
+      min-height: 88px;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
+      line-height: 1.45;
+      resize: vertical;
+      transition: var(--transition);
+    }
+
+    .prompt-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .prompt-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+      background: #fff;
+    }
+
+    .prompt-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .prompt-btn {
+      flex: 1;
+      height: 44px;
+      border: none;
+      border-radius: 12px;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: var(--transition);
+      background: linear-gradient(135deg, var(--accent), #f0a84a);
+      color: #fff;
+      box-shadow: 0 2px 10px rgba(232, 155, 46, 0.3);
+    }
+
+    .prompt-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(232, 155, 46, 0.4);
+    }
+
+    .prompt-btn:active {
+      transform: scale(0.98);
+    }
+
+    .prompt-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .prompt-btn svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .prompt-hints {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .hint-chip {
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition);
+      font-family: inherit;
+    }
+
+    .hint-chip:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .prompt-result {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      min-height: 1.2em;
+    }
+
+    /* ── Feedback / Toast ── */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: min(360px, calc(100vw - 32px));
+      pointer-events: none;
+    }
+
+    .toast {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+      animation: toast-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      pointer-events: auto;
+    }
+
+    .toast.success {
+      background: #ecfdf5;
+      border: 1px solid rgba(22, 163, 74, 0.25);
+      color: var(--success);
+    }
+
+    .toast.error {
+      background: #fef2f2;
+      border: 1px solid rgba(220, 38, 38, 0.25);
+      color: var(--error);
+    }
+
+    .toast.leaving {
+      animation: toast-out 0.25s ease forwards;
+    }
+
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateY(16px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes toast-out {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to { opacity: 0; transform: translateY(8px) scale(0.95); }
+    }
+
+    .toast svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    /* ── Loader ── */
+    .btn-loader {
+      width: 18px;
+      height: 18px;
+      border: 2px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ── Status bar ── */
+    .status-bar {
+      min-height: 0;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--error);
+      transition: var(--transition);
+    }
+
+    .status-bar:empty {
+      display: none;
+    }
+
+    /* ── Responsive ── */
+    @media (min-width: 600px) {
+      .container {
+        padding: 32px 24px 56px;
+      }
+
+      .header {
+        padding: 16px 32px;
+      }
+
+      .bulb-visual {
+        width: 160px;
+        height: 160px;
+      }
+
+      .presets {
+        grid-template-columns: repeat(6, 1fr);
+      }
+    }
+
+    @media (max-width: 380px) {
+      .presets {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .lamp-card {
+        padding: 24px 16px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"/></svg>
+      </div>
+      LIFX Control
+    </div>
+    <div id="connection" class="connection disconnected" role="status" aria-live="polite">
+      <span class="connection-dot"></span>
+      <span id="connection-text">Disconnected</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Main lamp card -->
+    <section class="card lamp-card" id="lamp-card" aria-label="Contrôle principal de la lampe">
+      <div class="bulb-visual" aria-hidden="true">
+        <svg class="bulb-svg" viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
+          <ellipse class="bulb-glass" cx="50" cy="42" rx="32" ry="38"/>
+          <path class="bulb-base" d="M38 78 L38 88 Q38 96 50 96 Q62 96 62 88 L62 78 Z"/>
+          <rect class="bulb-base" x="42" y="96" width="16" height="6" rx="2"/>
+          <rect class="bulb-base" x="44" y="103" width="12" height="5" rx="1.5"/>
+          <path class="bulb-filament" d="M42 50 Q50 35 58 50 Q50 42 42 50"/>
+          <line class="bulb-filament" x1="50" y1="50" x2="50" y2="72"/>
+        </svg>
+      </div>
+
+      <div class="lamp-info">
+        <h1 class="lamp-name">My LIFX Lamp</h1>
+        <div class="lamp-state">
+          État : <span class="lamp-state-badge" id="state-badge">OFF</span>
+        </div>
+      </div>
+
+      <button type="button" class="power-btn off" id="power-btn" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M12 2v10"/>
+          <path d="M18.4 6.6a9 9 0 1 1-12.8 0"/>
+        </svg>
+        <span id="power-label">Turn ON</span>
+      </button>
+    </section>
+
+    <!-- Prompt section -->
+    <section class="card" aria-label="Prompt de commande">
+      <div class="card-title">Prompt</div>
+      <div class="prompt-wrap">
+        <textarea
+          id="prompt-input"
+          class="prompt-input"
+          placeholder="Ex : warm sunset, froid et lumineux, rouge doux, violet nuit…"
+          rows="3"
+          aria-label="Saisir un prompt de scène ou de couleur"
+        ></textarea>
+        <div class="prompt-hints">
+          <button type="button" class="hint-chip" data-prompt="warm sunset">warm sunset</button>
+          <button type="button" class="hint-chip" data-prompt="cold white">cold white</button>
+          <button type="button" class="hint-chip" data-prompt="ocean blue">ocean blue</button>
+          <button type="button" class="hint-chip" data-prompt="forest green">forest green</button>
+          <button type="button" class="hint-chip" data-prompt="purple night">purple night</button>
+          <button type="button" class="hint-chip" data-prompt="candle light">candle light</button>
+        </div>
+        <div class="prompt-actions">
+          <button type="button" class="prompt-btn" id="prompt-apply">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+            Appliquer le prompt
+          </button>
+        </div>
+        <p class="prompt-result" id="prompt-result"></p>
+      </div>
+    </section>
+
+    <!-- Brightness -->
+    <section class="card" aria-label="Contrôle de luminosité">
+      <div class="card-title">Luminosité</div>
+      <div class="brightness-row">
+        <span style="color: var(--text-secondary); font-size: 0.9rem;">Intensité</span>
+        <span class="brightness-value" id="brightness-value">100%</span>
+      </div>
+      <div class="slider-wrap">
+        <input type="range" id="brightness" min="0" max="100" value="100" aria-label="Luminosité de 0 à 100 pourcent">
+      </div>
+    </section>
+
+    <!-- Color -->
+    <section class="card" aria-label="Contrôle de couleur">
+      <div class="card-title">Couleur</div>
+      <div class="color-picker-wrap">
+        <input type="color" id="color" value="#e89b2e" aria-label="Sélecteur de couleur">
+        <span class="color-hex" id="color-hex">#E89B2E</span>
+      </div>
+      <div class="presets" role="group" aria-label="Couleurs prédéfinies">
+        <button type="button" class="preset-btn" data-color="#ffd6a0" data-kelvin="2700">
+          <span class="preset-swatch" style="background: #ffd6a0;"></span>
+          Warm White
+        </button>
+        <button type="button" class="preset-btn" data-color="#e8f0ff" data-kelvin="6500">
+          <span class="preset-swatch" style="background: #e8f0ff;"></span>
+          Cold White
+        </button>
+        <button type="button" class="preset-btn" data-color="#ef4444">
+          <span class="preset-swatch" style="background: #ef4444;"></span>
+          Red
+        </button>
+        <button type="button" class="preset-btn" data-color="#3b82f6">
+          <span class="preset-swatch" style="background: #3b82f6;"></span>
+          Blue
+        </button>
+        <button type="button" class="preset-btn" data-color="#22c55e">
+          <span class="preset-swatch" style="background: #22c55e;"></span>
+          Green
+        </button>
+        <button type="button" class="preset-btn" data-color="#a855f7">
+          <span class="preset-swatch" style="background: #a855f7;"></span>
+          Purple
+        </button>
+      </div>
+    </section>
+
+    <p class="status-bar" id="status" role="status" aria-live="polite"></p>
+  </main>
+
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+  <script>
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => document.querySelectorAll(sel);
+
+    const lampCard = $("#lamp-card");
+    const powerBtn = $("#power-btn");
+    const powerLabel = $("#power-label");
+    const stateBadge = $("#state-badge");
+    const brightnessSlider = $("#brightness");
+    const brightnessValue = $("#brightness-value");
+    const colorInput = $("#color");
+    const colorHex = $("#color-hex");
+    const connectionEl = $("#connection");
+    const connectionText = $("#connection-text");
+    const statusEl = $("#status");
+    const toastContainer = $("#toast-container");
+    const promptInput = $("#prompt-input");
+    const promptApply = $("#prompt-apply");
+    const promptResult = $("#prompt-result");
+
+    let isOn = false;
+    let isSending = false;
+    let connected = false;
+
+    // Simple keyword → scene mapping
+    const PROMPT_MAP = [
+      { keys: ["warm sunset", "sunset", "coucher", "golden"], color: "#ff8c42", brightness: 80, kelvin: null },
+      { keys: ["candle", "bougie", "candle light"], color: "#ffb347", brightness: 35, kelvin: 1800 },
+      { keys: ["warm white", "chaud", "warm"], color: "#ffd6a0", brightness: 90, kelvin: 2700 },
+      { keys: ["cold white", "froid", "cold", "daylight"], color: "#e8f0ff", brightness: 100, kelvin: 6500 },
+      { keys: ["ocean", "ocean blue", "bleu océan", "sea"], color: "#1e90ff", brightness: 70, kelvin: null },
+      { keys: ["forest", "forest green", "vert forêt"], color: "#228b22", brightness: 60, kelvin: null },
+      { keys: ["purple night", "violet", "nuit", "night"], color: "#7b2cbf", brightness: 40, kelvin: null },
+      { keys: ["red", "rouge"], color: "#ef4444", brightness: 75, kelvin: null },
+      { keys: ["blue", "bleu"], color: "#3b82f6", brightness: 75, kelvin: null },
+      { keys: ["green", "vert"], color: "#22c55e", brightness: 75, kelvin: null },
+      { keys: ["pink", "rose"], color: "#ec4899", brightness: 70, kelvin: null },
+      { keys: ["orange"], color: "#f97316", brightness: 80, kelvin: null },
+      { keys: ["soft", "doux", "dim"], color: null, brightness: 30, kelvin: null },
+      { keys: ["bright", "lumineux", "max"], color: null, brightness: 100, kelvin: null },
+    ];
+
+    function parsePrompt(text) {
+      const t = text.trim().toLowerCase();
+      if (!t) return null;
+
+      let color = null;
+      let brightness = null;
+      let kelvin = null;
+      const matched = [];
+
+      for (const rule of PROMPT_MAP) {
+        if (rule.keys.some((k) => t.includes(k))) {
+          if (rule.color) color = rule.color;
+          if (rule.brightness != null) brightness = rule.brightness;
+          if (rule.kelvin != null) kelvin = rule.kelvin;
+          matched.push(rule.keys[0]);
+        }
+      }
+
+      // Hex direct
+      const hexMatch = t.match(/#([0-9a-f]{6})\b/i);
+      if (hexMatch) color = "#" + hexMatch[1];
+
+      if (!color && brightness == null && kelvin == null) return null;
+      return { color, brightness, kelvin, matched };
+    }
+
+    function setGlow(hex) {
+      document.documentElement.style.setProperty("--glow", hex);
+    }
+
+    function updateBrightnessFill() {
+      const pct = brightnessSlider.value;
+      brightnessSlider.style.setProperty("--fill", pct + "%");
+      brightnessValue.textContent = pct + "%";
+    }
+
+    function render() {
+      lampCard.classList.toggle("on", isOn);
+      powerBtn.classList.toggle("on", isOn);
+      powerBtn.classList.toggle("off", !isOn);
+      powerBtn.setAttribute("aria-pressed", isOn);
+      powerLabel.textContent = isOn ? "Turn OFF" : "Turn ON";
+      stateBadge.textContent = isOn ? "ON" : "OFF";
+    }
+
+    function setConnected(state) {
+      connected = state;
+      connectionEl.classList.toggle("connected", state);
+      connectionEl.classList.toggle("disconnected", !state);
+      connectionText.textContent = state ? "Connected" : "Disconnected";
+    }
+
+    function showToast(message, type = "success") {
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      const icon = type === "success"
+        ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`
+        : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>`;
+      toast.innerHTML = icon + `<span>${message}</span>`;
+      toastContainer.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.add("leaving");
+        toast.addEventListener("animationend", () => toast.remove());
+      }, 2800);
+    }
+
+    function setLoading(loading) {
+      isSending = loading;
+      powerBtn.disabled = loading;
+      promptApply.disabled = loading;
+      if (loading) {
+        powerLabel.innerHTML = `<span class="btn-loader"></span>`;
+      } else {
+        powerLabel.textContent = isOn ? "Turn OFF" : "Turn ON";
+      }
+    }
+
+    function debounce(fn, ms = 180) {
+      let t;
+      return (...args) => {
+        clearTimeout(t);
+        t = setTimeout(() => fn(...args), ms);
+      };
+    }
+
+    async function send(body) {
+      setLoading(true);
+      statusEl.textContent = "";
+      try {
+        const res = await fetch("/api/light", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
+
+        const results = data.results || [];
+        if (results.length === 0) {
+          setConnected(false);
+          showToast("Aucune ampoule trouvée sur le réseau.", "error");
+          statusEl.textContent = "Aucune ampoule trouvée sur le réseau.";
+          return false;
+        }
+        if (results.every((r) => r.status === "offline")) {
+          setConnected(false);
+          showToast("Ampoule hors ligne.", "error");
+          statusEl.textContent = "Ampoule hors ligne : vérifie qu'elle est allumée et sur le même réseau.";
+          return false;
+        }
+        setConnected(true);
+        showToast("Command sent successfully");
+        return true;
+      } catch (e) {
+        setConnected(false);
+        showToast("Impossible d'envoyer la commande", "error");
+        statusEl.textContent = "Impossible d'envoyer la commande : " + e.message;
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // ── Power ──
+    powerBtn.addEventListener("click", async () => {
+      if (isSending) return;
+      const next = !isOn;
+      isOn = next;
+      render();
+      const ok = await send({ power: next ? "on" : "off", duration: 0.4 });
+      if (!ok) {
+        isOn = !next;
+        render();
+      }
+    });
+
+    // ── Brightness ──
+    const sendBrightness = debounce(() => {
+      send({ power: "on", brightness: brightnessSlider.value / 100, duration: 0.2 });
+    });
+
+    brightnessSlider.addEventListener("input", () => {
+      updateBrightnessFill();
+      if (+brightnessSlider.value > 0) {
+        isOn = true;
+        render();
+      }
+      sendBrightness();
+    });
+
+    // ── Color ──
+    const sendColor = debounce((hex) => {
+      send({ power: "on", color: hex, duration: 0.3 });
+    });
+
+    colorInput.addEventListener("input", () => {
+      const hex = colorInput.value.toUpperCase();
+      colorHex.textContent = hex;
+      setGlow(hex);
+      isOn = true;
+      render();
+      $$(".preset-btn").forEach((b) => b.classList.remove("active"));
+      sendColor(hex);
+    });
+
+    $$(".preset-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const hex = btn.dataset.color;
+        const kelvin = btn.dataset.kelvin;
+
+        $$(".preset-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+
+        colorInput.value = hex;
+        colorHex.textContent = hex.toUpperCase();
+        setGlow(hex);
+        isOn = true;
+        render();
+
+        if (kelvin) {
+          send({ power: "on", color: `kelvin:${kelvin}`, duration: 0.3 });
+        } else {
+          send({ power: "on", color: hex, duration: 0.3 });
+        }
+      });
+    });
+
+    // ── Prompt ──
+    // Ancienne interprétation par mots-clés, gardée en secours si l'IA est indisponible
+    async function applyPromptLocal() {
+      const text = promptInput.value.trim();
+      if (!text) {
+        promptResult.textContent = "Saisissez un prompt (ex. warm sunset).";
+        return;
+      }
+
+      const parsed = parsePrompt(text);
+      if (!parsed) {
+        promptResult.textContent = "Prompt non reconnu. Essayez : warm sunset, ocean blue, candle light…";
+        showToast("Prompt non reconnu", "error");
+        return;
+      }
+
+      const { color, brightness, kelvin, matched } = parsed;
+      promptResult.textContent = "Interprété : " + matched.join(", ");
+
+      isOn = true;
+      render();
+
+      if (brightness != null) {
+        brightnessSlider.value = brightness;
+        updateBrightnessFill();
+      }
+
+      if (kelvin != null) {
+        const hex = color || "#ffd6a0";
+        colorInput.value = hex;
+        colorHex.textContent = hex.toUpperCase();
+        setGlow(hex);
+        await send({
+          power: "on",
+          color: `kelvin:${kelvin}`,
+          brightness: (brightness ?? 90) / 100,
+          duration: 0.4,
+        });
+      } else if (color) {
+        colorInput.value = color;
+        colorHex.textContent = color.toUpperCase();
+        setGlow(color);
+        $$(".preset-btn").forEach((b) => b.classList.remove("active"));
+        await send({
+          power: "on",
+          color: color,
+          brightness: (brightness ?? 80) / 100,
+          duration: 0.4,
+        });
+      } else if (brightness != null) {
+        await send({
+          power: "on",
+          brightness: brightness / 100,
+          duration: 0.3,
+        });
+      }
+    }
+
+    // Prompt libre interprété par l'IA (via /api/prompt), avec repli local
+    async function applyPrompt() {
+      const text = promptInput.value.trim();
+      if (!text) {
+        promptResult.textContent = "Saisissez un prompt (ex. warm sunset).";
+        return;
+      }
+      if (isSending) return;
+
+      setLoading(true);
+      promptResult.textContent = "L'IA réfléchit…";
+      try {
+        const res = await fetch("/api/prompt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: text }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
+
+        const results = data.results || [];
+        if (!results.length || results.every((r) => r.status === "offline")) {
+          setConnected(false);
+          showToast("Ampoule hors ligne.", "error");
+          promptResult.textContent = "L'IA a compris, mais l'ampoule est injoignable.";
+          return;
+        }
+
+        setConnected(true);
+        const it = data.interpreted;
+        promptResult.textContent = "IA : " + (it.message || "commande envoyée");
+        isOn = it.power === "on";
+        if (isOn) {
+          if (it.brightness != null) {
+            brightnessSlider.value = it.brightness;
+            updateBrightnessFill();
+          }
+          const hex = it.color || (it.kelvin ? kelvinToHex(it.kelvin) : null);
+          if (hex) {
+            colorInput.value = hex;
+            colorHex.textContent = hex.toUpperCase();
+            setGlow(hex);
+            $$(".preset-btn").forEach((b) => b.classList.remove("active"));
+          }
+        }
+        render();
+        showToast("Command sent successfully");
+      } catch (e) {
+        promptResult.textContent = "IA indisponible (" + e.message + "), interprétation locale.";
+        await applyPromptLocal();
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    promptApply.addEventListener("click", applyPrompt);
+
+    promptInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        applyPrompt();
+      }
+    });
+
+    $$(".hint-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        promptInput.value = chip.dataset.prompt;
+        applyPrompt();
+      });
+    });
+
+    // ── Helpers ──
+    function kelvinToHex(k) {
+      const t = Math.max(0, Math.min(1, (k - 1500) / 7500));
+      const mix = (a, b) => Math.round(a + (b - a) * t);
+      return "#" + [mix(255, 200), mix(180, 220), mix(100, 255)]
+        .map((v) => v.toString(16).padStart(2, "0")).join("");
+    }
+
+    function hsToHex(h, s) {
+      const f = (n) => {
+        const k = (n + h / 60) % 6;
+        const v = 1 - s * Math.max(0, Math.min(k, 4 - k, 1));
+        return Math.round(v * 255).toString(16).padStart(2, "0");
+      };
+      return "#" + f(5) + f(3) + f(1);
+    }
+
+    // ── Initial state ──
+    (async () => {
+      updateBrightnessFill();
+      try {
+        const res = await fetch("/api/light");
+        const lights = await res.json();
+        if (!res.ok) throw new Error(lights.error || `Erreur ${res.status}`);
+        if (!lights.length) {
+          setConnected(false);
+          statusEl.textContent = "Aucune ampoule trouvée sur le réseau.";
+          return;
+        }
+        const l = lights[0];
+        setConnected(true);
+        isOn = l.power === "on";
+        brightnessSlider.value = Math.max(0, Math.round(l.brightness * 100));
+        updateBrightnessFill();
+
+        if (l.color.saturation > 0.05) {
+          const hex = hsToHex(l.color.hue, l.color.saturation);
+          colorInput.value = hex;
+          colorHex.textContent = hex.toUpperCase();
+          setGlow(hex);
+        } else {
+          const hex = kelvinToHex(l.color.kelvin);
+          colorInput.value = hex;
+          colorHex.textContent = hex.toUpperCase();
+          setGlow(hex);
+          const warm = Math.abs(l.color.kelvin - 2700) < 400;
+          const cold = Math.abs(l.color.kelvin - 6500) < 500;
+          if (warm) $$(".preset-btn")[0]?.classList.add("active");
+          else if (cold) $$(".preset-btn")[1]?.classList.add("active");
+        }
+        render();
+      } catch (e) {
+        setConnected(false);
+        statusEl.textContent = "Lecture de l'état impossible : " + e.message;
+      }
+    })();
+  </script>
+</body>
+</html>

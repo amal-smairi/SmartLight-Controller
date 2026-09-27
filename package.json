@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "lifx-lan-client": "^2.1.2",
+    "node-lifx-lan": "^0.5.1"
+  }
+}
